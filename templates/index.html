@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask HPA Demo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Welcome to the HPA Demo</h1>
+            <p>Click the button below to start generating load and showcase Horizontal Pod Autoscaling (HPA) in Kubernetes.</p>
+        </header>
+
+        <main>
+            <button class="load-btn" onclick="startLoadTest()">Start Load Test</button>
+            <div id="message" class="message"></div>
+        </main>
+
+        <footer>
+            <p>Demo by Shruthaja P Rao</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
