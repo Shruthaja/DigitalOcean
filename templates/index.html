@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flask HPA Demo</title>
+    <title>HPA Demo</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
@@ -14,7 +14,8 @@
         </header>
 
         <main>
-            <button class="load-btn" onclick="startLoadTest()">Start Load Test</button>
+            <button class="load-btn" onclick="startMemoryLoadTest()">Start Memory Load Test</button>
+            <button style="margin-top:10%" class="load-btn" onclick="startCpuLoadTest()">Start CPU Load Test</button>
             <div id="message" class="message"></div>
         </main>
 
@@ -24,5 +25,28 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        function startMemoryLoadTest() {
+            fetch('/start-memory-load')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('message').innerText = data.message;
+                })
+                .catch(error => {
+                    document.getElementById('message').innerText = "Error starting memory load test!";
+                });
+        }
+
+        function startCpuLoadTest() {
+            fetch('/start-cpu-load')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('message').innerText = data.message;
+                })
+                .catch(error => {
+                    document.getElementById('message').innerText = "Error starting CPU load test!";
+                });
+        }
+    </script>
 </body>
 </html>
