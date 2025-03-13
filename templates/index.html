@@ -4,19 +4,156 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HPA Demo</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            overflow: hidden;
+            padding: 20px;
+        }
+        header {
+            background: #0062cc;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 30px;
+            border-radius: 5px;
+        }
+        .load-btn {
+            display: inline-block;
+            background: #0062cc;
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 15px;
+            font-family: inherit;
+            width: 230px;
+        }
+        .stop-btn {
+            background: #dc3545;
+        }
+        .load-btn:hover {
+            opacity: 0.9;
+        }
+        .message {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #0062cc;
+        }
+        footer {
+            margin-top: 30px;
+            text-align: center;
+            padding: 20px;
+            color: #777;
+        }
+        .button-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .button-group {
+            margin: 10px 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .status-container {
+            margin-top: 30px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .progress-bar {
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        .cpu-bar-fill {
+            background-color: #0062cc;
+        }
+        .memory-bar-fill {
+            background-color: #28a745;
+        }
+        .status-item {
+            margin-bottom: 15px;
+        }
+        .attention {
+            font-weight: bold;
+            color: #dc3545;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>Welcome to the HPA Demo</h1>
-            <p>Click the button below to start generating load and showcase Horizontal Pod Autoscaling (HPA) in Kubernetes.</p>
+            <p>Click the buttons below to start/stop generating load and showcase Horizontal Pod Autoscaling (HPA) in Kubernetes.</p>
         </header>
 
         <main>
-            <button class="load-btn" onclick="startMemoryLoadTest()">Start Memory Load Test</button>
-            <button style="margin-top:10%" class="load-btn" onclick="startCpuLoadTest()">Start CPU Load Test</button>
-            <div id="message" class="message"></div>
+            <div class="button-container">
+                <div class="button-group">
+                    <button class="load-btn" onclick="startMemoryLoadTest()">Start Memory Load Test</button>
+                    <button class="load-btn stop-btn" onclick="stopMemoryLoadTest()">Stop Memory Load Test</button>
+                </div>
+
+                <div class="button-group">
+                    <button class="load-btn" onclick="startCpuLoadTest()">Start CPU Load Test</button>
+                    <button class="load-btn stop-btn" onclick="stopCpuLoadTest()">Stop CPU Load Test</button>
+                </div>
+
+                <div class="button-group">
+                    <button class="load-btn" style="background-color: #ffc107; color: black" onclick="stopAllTests()">EMERGENCY STOP ALL TESTS</button>
+                </div>
+            </div>
+
+            <div id="message" class="message">Status messages will appear here</div>
+
+            <div class="status-container">
+                <h3>System Status</h3>
+                <div id="status">
+                    <div class="status-item">
+                        <p>CPU Usage: <span id="cpu-value">0%</span></p>
+                        <div class="progress-bar">
+                            <div id="cpu-bar" class="progress-bar-fill cpu-bar-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="status-item">
+                        <p>Memory Usage: <span id="memory-value">0%</span></p>
+                        <div class="progress-bar">
+                            <div id="memory-bar" class="progress-bar-fill memory-bar-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="status-item">
+                        <p>CPU Test: <span id="cpu-test-status">Stopped</span></p>
+                    </div>
+
+                    <div class="status-item">
+                        <p>Memory Test: <span id="memory-test-status">Stopped</span></p>
+                    </div>
+                </div>
+            </div>
         </main>
 
         <footer>
@@ -24,29 +161,132 @@
         </footer>
     </div>
 
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <script>
         function startMemoryLoadTest() {
+            document.getElementById('message').innerText = "Starting memory load test...";
+
             fetch('/start-memory-load')
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('message').innerText = data.message;
+                    updateStatus();
                 })
                 .catch(error => {
                     document.getElementById('message').innerText = "Error starting memory load test!";
                 });
         }
 
+        function stopMemoryLoadTest() {
+            document.getElementById('message').innerText = "Stopping memory load test...";
+
+            fetch('/stop-memory-load')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('message').innerText = data.message;
+                    updateStatus();
+                })
+                .catch(error => {
+                    document.getElementById('message').innerText = "Error stopping memory load test!";
+                });
+        }
+
         function startCpuLoadTest() {
+            document.getElementById('message').innerText = "Starting CPU load test...";
+
             fetch('/start-cpu-load')
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('message').innerText = data.message;
+                    updateStatus();
                 })
                 .catch(error => {
                     document.getElementById('message').innerText = "Error starting CPU load test!";
                 });
         }
+
+        function stopCpuLoadTest() {
+            document.getElementById('message').innerText = "Stopping CPU load test...";
+
+            fetch('/stop-cpu-load')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('message').innerText = data.message;
+                    updateStatus();
+                })
+                .catch(error => {
+                    document.getElementById('message').innerText = "Error stopping CPU load test!";
+                });
+        }
+
+        function stopAllTests() {
+            document.getElementById('message').innerText = "EMERGENCY STOP: Stopping all load tests...";
+
+            // Stop both tests in parallel
+            Promise.all([
+                fetch('/stop-cpu-load').then(response => response.json()),
+                fetch('/stop-memory-load').then(response => response.json())
+            ])
+            .then(results => {
+                document.getElementById('message').innerText = "All load tests have been stopped.";
+                updateStatus();
+            })
+            .catch(error => {
+                document.getElementById('message').innerText = "Error stopping tests! Server may be overloaded.";
+            });
+        }
+
+        function updateStatus() {
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    // Update CPU display
+                    const cpuPercent = data.cpu_percent.toFixed(1);
+                    document.getElementById('cpu-value').innerText = cpuPercent + '%';
+                    document.getElementById('cpu-bar').style.width = cpuPercent + '%';
+
+                    // Change color if approaching danger zone
+                    if (cpuPercent > 80) {
+                        document.getElementById('cpu-bar').style.backgroundColor = '#dc3545';
+                    } else {
+                        document.getElementById('cpu-bar').style.backgroundColor = '#0062cc';
+                    }
+
+                    // Update Memory display
+                    const memoryPercent = data.memory_percent.toFixed(1);
+                    document.getElementById('memory-value').innerText = memoryPercent + '%';
+                    document.getElementById('memory-bar').style.width = memoryPercent + '%';
+
+                    // Change color if approaching danger zone
+                    if (memoryPercent > 80) {
+                        document.getElementById('memory-bar').style.backgroundColor = '#dc3545';
+                    } else {
+                        document.getElementById('memory-bar').style.backgroundColor = '#28a745';
+                    }
+
+                    // Update test status
+                    document.getElementById('cpu-test-status').innerText = data.cpu_test_running ? 'Running' : 'Stopped';
+                    document.getElementById('cpu-test-status').style.color = data.cpu_test_running ? '#28a745' : '#dc3545';
+
+                    document.getElementById('memory-test-status').innerText = data.memory_test_running ? 'Running' : 'Stopped';
+                    document.getElementById('memory-test-status').style.color = data.memory_test_running ? '#28a745' : '#dc3545';
+
+                    // Warning if memory is getting high
+                    if (memoryPercent > 85 && (data.cpu_test_running || data.memory_test_running)) {
+                        document.getElementById('message').innerHTML =
+                            "<span class='attention'>WARNING: Memory usage is very high! Consider stopping tests to prevent pod crash.</span>";
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching status:", error);
+                    document.getElementById('message').innerText = "Error fetching status. Server may be overloaded.";
+                });
+        }
+
+        // Update status every 2 seconds
+        setInterval(updateStatus, 2000);
+
+        // Initial status update
+        updateStatus();
     </script>
 </body>
 </html>

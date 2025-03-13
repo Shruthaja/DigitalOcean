@@ -6,8 +6,10 @@ from flask import Flask, render_template, jsonify
 
 app = Flask(__name__)
 
-# Global instance of the CPU loader
+# Global instances of the loaders
 cpu_loader = None
+memory_loader_running = False
+memory_data = []  # Global reference to allocated memory
 
 
 class CPULoader:
@@ -143,30 +145,84 @@ class CPULoader:
 
 
 def simulate_memory_load():
-    total_memory = psutil.virtual_memory().total  # Total system memory
-    target_memory_usage = total_memory * 0.6  # 60% of total memory
+    """Simulate memory load that can be stopped externally"""
+    global memory_loader_running, memory_data
 
+    # Set flag
+    memory_loader_running = True
+
+    # Clear any previous data
+    memory_data = []
+
+    # Get current memory stats
+    mem = psutil.virtual_memory()
+    total_memory = mem.total
+    available_memory = mem.available
+
+    # Target 60% of AVAILABLE memory, not total
+    target_memory_usage = available_memory * 0.6
     allocated_memory = 0
-    large_data = []
+
+    print(f"Starting memory load test targeting 60% of available memory ({available_memory / (1024 ** 3):.2f} GB)")
 
     try:
-        while allocated_memory < target_memory_usage:
-            # Allocate 1 MB chunks
-            chunk = 'a' * 10 ** 6  # 1 MB per string
-            large_data.append(chunk)
+        # Use larger chunks for faster allocation
+        chunk_size = 10 ** 7  # 10 MB per allocation
+
+        while allocated_memory < target_memory_usage and memory_loader_running:
+            # Allocate larger chunks for faster memory consumption
+            chunk = 'a' * chunk_size
+            memory_data.append(chunk)
             allocated_memory += len(chunk)
 
-            # Slow down the memory load to keep it under load for longer
-            if allocated_memory % 10 ** 6 == 0:  # Every MB, print progress
-                print(f"Allocated {allocated_memory / (1024 ** 2):.2f} MB")
-            # time.sleep(0.5)  # Sleep for 0.5 seconds to slow down the allocation
+            # Print progress after each larger chunk
+            current_usage = psutil.virtual_memory().percent
+            print(f"Allocated {allocated_memory / (1024 ** 2):.2f} MB, Total system usage: {current_usage}%")
 
-        print(f"Memory limit reached: {allocated_memory / (1024 ** 2):.2f} MB (60% of total)")
-        # Keep the memory load for some additional time after reaching the target
-        time.sleep(120)  # Keep the load for 120 seconds after reaching the target
+            # Check if we should stop
+            if not memory_loader_running:
+                break
+
+            # Safety check - stop if overall memory usage exceeds 60%
+            if psutil.virtual_memory().percent > 60:
+                print("Safety limit reached (80% total memory), stopping")
+                break
+
+            # No sleep between allocations to speed things up
+
+        print(f"Memory allocation complete: {allocated_memory / (1024 ** 2):.2f} MB")
+
+        # Keep the memory load until stopped
+        while memory_loader_running:
+            current_usage = psutil.virtual_memory().percent
+            print(f"Holding memory load, current system usage: {current_usage}%")
+            time.sleep(5)  # Report status every 5 seconds
 
     except MemoryError:
         print("Memory limit reached, but was caught early!")
+    finally:
+        # Make sure to clear memory if this function exits for any reason
+        if not memory_loader_running:
+            stop_memory_load_internal()
+
+
+def stop_memory_load_internal():
+    """Internal function to clean up memory load"""
+    global memory_loader_running, memory_data
+
+    memory_loader_running = False
+
+    # Calculate memory to be freed
+    memory_to_free = sum(len(chunk) for chunk in memory_data) / (1024 ** 2)
+
+    # Clear the list to free memory
+    memory_data.clear()
+
+    # Force garbage collection
+    import gc
+    gc.collect()
+
+    print(f"Memory load test stopped, freed approximately {memory_to_free:.2f} MB")
 
 
 @app.route('/')
@@ -176,9 +232,26 @@ def index():
 
 @app.route('/start-memory-load', methods=['GET'])
 def start_memory_load():
+    global memory_loader_running
+
+    # Stop any existing memory load
+    if memory_loader_running:
+        stop_memory_load_internal()
+
     # Run the memory load test in a separate thread
     threading.Thread(target=simulate_memory_load, daemon=True).start()
-    return jsonify(message="Memory load test started. Check the logs for details.")
+    return jsonify(message="Memory load test started targeting 60% of total memory. Check the logs for details.")
+
+
+@app.route('/stop-memory-load', methods=['GET'])
+def stop_memory_load():
+    global memory_loader_running
+
+    if memory_loader_running:
+        stop_memory_load_internal()
+        return jsonify(message="Memory load test stopped.")
+    else:
+        return jsonify(message="No memory load test currently running.")
 
 
 @app.route('/start-cpu-load', methods=['GET'])
@@ -210,15 +283,27 @@ def stop_cpu_load():
 
 @app.route('/status', methods=['GET'])
 def status():
-    cpu_percent = psutil.cpu_percent()
+    # Get CPU usage with a very short interval to get current value
+    cpu_percent = psutil.cpu_percent(interval=0.1)
     memory = psutil.virtual_memory()
     memory_percent = memory.percent
 
     return jsonify({
         'cpu_percent': cpu_percent,
         'memory_percent': memory_percent,
-        'cpu_test_running': cpu_loader.running if cpu_loader else False
+        'cpu_test_running': cpu_loader.running if cpu_loader else False,
+        'memory_test_running': memory_loader_running,
+        'timestamp': time.time()  # Add timestamp to prevent caching
     })
+
+
+# To ensure Flask doesn't cache responses
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '-1'
+    return response
 
 
 if __name__ == '__main__':
