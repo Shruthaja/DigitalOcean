@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: flask-app
-          image: registry.digitalocean.com/shruthaja-container-registry/flask-app:v2
+          image: registry.digitalocean.com/shruthaja-container-registry/flask-app:v3
           ports:
             - containerPort: 5000
           resources:
