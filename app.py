@@ -11,7 +11,6 @@ cpu_loader = None
 memory_loader_running = False
 memory_data = []  # Global reference to allocated memory
 
-
 class CPULoader:
     def __init__(self, target_percent=60, check_interval=1.0):
         """
@@ -55,11 +54,9 @@ class CPULoader:
         while self.running:
             # Get current CPU usage
             current_percent = psutil.cpu_percent(interval=self.check_interval)
-
             # Log current status
             print(
                 f"Current CPU: {current_percent:.1f}% | Target: {self.target_percent}% | Workers: {len(self.processes)} | Intensity: {self.intensity}")
-
             # Dynamically adjust intensity based on how far we are from target
             if current_percent < self.target_percent - 10:
                 # Significantly increase intensity if we're way below target
@@ -279,7 +276,6 @@ def stop_cpu_load():
         return jsonify(message="CPU load test stopped.")
     else:
         return jsonify(message="No CPU load test currently running.")
-
 
 @app.route('/status', methods=['GET'])
 def status():
